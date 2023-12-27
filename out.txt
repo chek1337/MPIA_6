@@ -1,4 +1,8 @@
-   0    5    2    4
-   4    0    3    5
-   7    3    0    2
-   5    1    4    0
+0 1 2 3 4 5 6 7 
+INF 0 1 2 3 4 5 6 
+INF 2 0 1 2 3 4 5 
+INF 1 2 0 1 2 3 4 
+INF INF INF INF 0 1 2 3 
+INF INF INF INF 2 0 1 2 
+INF INF INF INF 1 2 0 1 
+INF INF INF INF INF INF INF 0 
