@@ -44,8 +44,7 @@ int main(int argc, char** argv) {
 				for (int j = 0; j < n; j++)
 					if (matrix[i * n + k] < INT_MAX && matrix[k * n + j] < INT_MAX)
 					{
-						if (matrix[i * n + k] + matrix[k * n + j] < matrix[i * n + j])
-							matrix[i * n + j] = matrix[i * n + k] + matrix[k * n + j];
+							matrix[i * n + j] = min(matrix[i * n + k] + matrix[k * n + j], matrix[i*n+j]);
 						//matrix[i * n + j] = min(matrix[i * n + j], matrix[i * n + k] + matrix[k * n + j]);
 					}	
 		}
@@ -83,7 +82,10 @@ int main(int argc, char** argv) {
 			}
 			for (int i = 0; i < p; i++)
 				for (int j = 0; j < n; j++)
-					list[i * n + j] = min(list[i * n + j], list[i * n + k] + veck[j]);
+					if (list[i * n + k] < INT_MAX && veck[j] < INT_MAX)
+					{
+							list[i * n + j] = min(list[i * n + k] + veck[j], list[i * n + j]);
+					}
 		}
 		MPI_Send(&list[0], p * n, MPI_INT, 0, (size + rank) * p, MPI_COMM_WORLD);
 	}
