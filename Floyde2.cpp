@@ -6,6 +6,21 @@
 #include <chrono>
 using namespace std;
 
+
+void printMatrix(vector<int> matr, int n) {
+	ofstream outf;
+	outf.open("out.txt");
+	for (int i = 0; i < n; i++) {
+		for (int j = 0; j < n; j++) {
+			if (matr[i * n + j] == INT_MAX)
+				outf << "INF" << "\t";
+			else
+				outf << matr[i * n + j] << "\t";
+		}
+		outf << endl;
+	}
+}
+
 int main(int argc, char** argv) {
 	int rank, size;
 	MPI_Status st;
@@ -18,7 +33,6 @@ int main(int argc, char** argv) {
 		cin >> n;
 		MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
 		int p = n / size;
-		//int* Matr = new int[n * n];
 		vector<int> Matr(n * n, 0);
 		for (int i = 0; i < n; i++) {
 			for (int j = 0; j < n; j++) {
@@ -42,7 +56,7 @@ int main(int argc, char** argv) {
 			}
 		}
 
-		auto start = chrono::high_resolution_clock::now();
+		auto timerStart = chrono::steady_clock::now();
 		for (int i = 1; i < size; i++)
 			MPI_Send(&Matr[i * p * n], p * n, MPI_INT, i, i, MPI_COMM_WORLD);
 		for (int k = 0; k < n; k++) {
@@ -50,24 +64,13 @@ int main(int argc, char** argv) {
 			for (int i = 0; i < p; i++)
 				for (int j = 0; j < n; j++)
 					if (Matr[i * n + k] < INT_MAX && Matr[k * n + j] < INT_MAX)
-					{
 							Matr[i * n + j] = min(Matr[i * n + k] + Matr[k * n + j], Matr[i*n+j]);
-						//matrix[i * n + j] = min(matrix[i * n + j], matrix[i * n + k] + matrix[k * n + j]);
-					}	
 		}
 		for (int i = 1; i < size; i++)
 			MPI_Recv(&Matr[i * p * n], p * n, MPI_INT, i, (size + i) * p, MPI_COMM_WORLD, &st);
-		double time = chrono::duration_cast<chrono::microseconds>(chrono::high_resolution_clock::now() - start).count();
-		cout << "Time: " << setprecision(15) << time / 1000 << " ms" << endl;
-		ofstream out;
-		out.open("out.txt");
-		for (int i = 0; i < n; i++) {
-			out << setfill(' ') << setw(4) << Matr[i * n];
-			for (int j = 1; j < n; j++)
-				out << setfill(' ') << setw(5) << Matr[i * n + j];
-			out << endl;
-		}
-		out.close();
+		auto timerEnd = chrono::steady_clock::now();
+		cout << chrono::duration_cast<chrono::milliseconds>(timerEnd - timerStart).count() << " ms";
+		//printMatrix(Matr, n);
 	}
 	else {
 		int n = 0;
@@ -90,9 +93,7 @@ int main(int argc, char** argv) {
 			for (int i = 0; i < p; i++)
 				for (int j = 0; j < n; j++)
 					if (list[i * n + k] < INT_MAX && veck[j] < INT_MAX)
-					{
 							list[i * n + j] = min(list[i * n + k] + veck[j], list[i * n + j]);
-					}
 		}
 		MPI_Send(&list[0], p * n, MPI_INT, 0, (size + rank) * p, MPI_COMM_WORLD);
 	}
