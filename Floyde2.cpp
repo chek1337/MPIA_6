@@ -58,44 +58,48 @@ int main(int argc, char** argv) {
 
 		auto timerStart = chrono::steady_clock::now();
 		for (int i = 1; i < size; i++)
-			MPI_Send(&Matr[i * p * n], p * n, MPI_INT, i, i, MPI_COMM_WORLD);
-		for (int k = 0; k < n; k++) {
-			MPI_Bcast(&Matr[k * n], n, MPI_INT, (int)(k / p), MPI_COMM_WORLD);
-			for (int i = 0; i < p; i++)
-				for (int j = 0; j < n; j++)
-					if (Matr[i * n + k] < INT_MAX && Matr[k * n + j] < INT_MAX)
+			MPI_Send(&Matr[i * p * n], p * n, MPI_INT, i, i, MPI_COMM_WORLD); // Отправка блоков матрицы в другие процессы
+		for (int k = 0; k < n; k++) { // Обход к-ых строчек
+			int root = (int)(k / p);
+			MPI_Bcast(&Matr[k * n], n, MPI_INT, root, MPI_COMM_WORLD); // если root == текущему ранку, то он отсылает всем остальным процессам k-ую строчку, иначе ждет от другого процесса к-ую строку
+			for (int i = 0; i < p; i++) // Проход строчек в блоке
+				for (int j = 0; j < n; j++) // Проход столбцов в строчке
+					if (Matr[i * n + k] < INT_MAX && Matr[k * n + j] < INT_MAX) // Сам Флойд
 							Matr[i * n + j] = min(Matr[i * n + k] + Matr[k * n + j], Matr[i*n+j]);
 		}
 		for (int i = 1; i < size; i++)
-			MPI_Recv(&Matr[i * p * n], p * n, MPI_INT, i, (size + i) * p, MPI_COMM_WORLD, &st);
+			MPI_Recv(&Matr[i * p * n], p * n, MPI_INT, i, (size + i) * p, MPI_COMM_WORLD, &st); // Принятие блоков от других процессов
 		auto timerEnd = chrono::steady_clock::now();
 		cout << chrono::duration_cast<chrono::milliseconds>(timerEnd - timerStart).count() << " ms";
 		//printMatrix(Matr, n);
 	}
-	else {
-		int n = 0;
-		vector<int> list;
-		vector<int> veck;
+	else 
+	{
+		int n=0;
 		MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
-		int p = n / size;
-		list.resize(p * n);
-		veck.resize(n);
-		MPI_Recv(&list[0], p * n, MPI_INT, 0, rank, MPI_COMM_WORLD, &st);
-		for (int k = 0; k < n; k++) {
-			if ((int)(k / p) == rank) {
-				MPI_Bcast(&list[k % p * n], n, MPI_INT, (int)(k / p), MPI_COMM_WORLD);
+		int strInRow = n / size;
+		vector<int> block(strInRow*n, 0);
+		vector<int> kRow(n, 0);
+
+		MPI_Recv(&block[0], strInRow * n, MPI_INT, 0, rank, MPI_COMM_WORLD, &st); // Принятия блока каждым процессом
+		for (int k = 0; k < n; k++) { // Обход к-ых строчек
+			int root = (int)(k / strInRow);
+			if (root == rank) { // к-ая строчка находится в блоке с тем же рангом или нет?
+				// Да, находится
+				MPI_Bcast(&block[k % strInRow * n], n, MPI_INT, root, MPI_COMM_WORLD); // Отдадим k-ую строчку остальным процессам
 				for (int i = 0; i < n; i++)
-					veck[i] = list[k % p * n + i];
+					kRow[i] = block[k % strInRow * n + i]; // Скопируем k-ую строчку
 			}
 			else {
-				MPI_Bcast(&veck[0], n, MPI_INT, (int)(k / p), MPI_COMM_WORLD);
+				// Нет, не находится
+				MPI_Bcast(&kRow[0], n, MPI_INT, root, MPI_COMM_WORLD); // Принимаем от другого процесса
 			}
-			for (int i = 0; i < p; i++)
-				for (int j = 0; j < n; j++)
-					if (list[i * n + k] < INT_MAX && veck[j] < INT_MAX)
-							list[i * n + j] = min(list[i * n + k] + veck[j], list[i * n + j]);
+			for (int i = 0; i < strInRow; i++) // Проход строчек в блоке
+				for (int j = 0; j < n; j++) // Проход столбцов в строчке
+					if (block[i * n + k] < INT_MAX && kRow[j] < INT_MAX)
+							block[i * n + j] = min(block[i * n + k] + kRow[j], block[i * n + j]);
 		}
-		MPI_Send(&list[0], p * n, MPI_INT, 0, (size + rank) * p, MPI_COMM_WORLD);
+		MPI_Send(&block[0], strInRow * n, MPI_INT, 0, (size + rank) * strInRow, MPI_COMM_WORLD); // Отправка блока в 1 процесс
 	}
 	MPI_Finalize();
 	return 0;
